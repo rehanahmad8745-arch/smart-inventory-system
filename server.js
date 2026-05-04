@@ -120,3 +120,12 @@ server.listen(PORT, () => {
     console.log(`\n  Admin:  admin / password`);
     console.log(`  Staff:  staff / password\n`);
 });
+const path = require('path');
+
+// Serve frontend (correct for your structure)
+app.use(express.static(path.join(__dirname, 'frontend')));
+
+// SPA routing
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'frontend', 'index.html'));
+});

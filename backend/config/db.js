@@ -7,7 +7,8 @@ const pool = mysql.createPool({
     port:     parseInt(process.env.DB_PORT) || 3306,
     user:     process.env.DB_USER || 'root',
     password: process.env.DB_PASSWORD || '',
-    database: process.env.DB_NAME || 'stocksense',
+    //database: process.env.DB_NAME || 'stocksense',
+    database: process.env.DB_NAME || 'railway',
     waitForConnections: true,
     connectionLimit: 10,
     queueLimit: 0,
@@ -26,3 +27,4 @@ pool.getConnection()
     });
 
 module.exports = pool;
+console.log("DB NAME:", process.env.DB_NAME);
