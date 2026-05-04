@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Smart Inventory AI</title>
+  <link rel="stylesheet" href="/css/style.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════
+     LOGIN SCREEN
+═══════════════════════════════════════════ -->
+<div id="login-screen" class="login-screen">
+  <div class="login-box">
+    <div class="login-logo">
+      <span class="login-logo-name">⬡ Smart Inventory AI</span>
+      <div style="font-size:12px;color:var(--text3);margin-top:6px;"> Retail Management System</div>
+    </div>
+    <div class="login-tabs">
+      <button class="login-tab active" data-role="admin" onclick="setLoginRole('admin')">Admin</button>
+      <button class="login-tab" data-role="staff" onclick="setLoginRole('staff')">Staff</button>
+    </div>
+    <div id="login-hint" class="login-hint">Hint: admin / password</div>
+    <div id="login-error" class="login-err hidden"></div>
+    <div class="form-group">
+      <label class="form-label">Username</label>
+      <input id="login-username" class="form-input" type="text" placeholder="Enter username" value="admin" />
+    </div>
+    <div class="form-group">
+      <label class="form-label">Password</label>
+      <input id="login-password" class="form-input" type="password" placeholder="Enter password" value="password"
+             onkeydown="if(event.key==='Enter') doLogin()" />
+    </div>
+    <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:4px;" onclick="doLogin()">
+      Sign In →
+    </button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     MAIN APP
+═══════════════════════════════════════════ -->
+<div id="main-app" class="app hidden">
+
+  <!-- ── SIDEBAR ── -->
+  <aside class="sidebar">
+    <div class="logo">
+      <div class="logo-name" id="sidebar-logo-name">⬡ Smart Inventory AI</div>
+      <div class="logo-sub">AI-Powered Retail</div>
+    </div>
+    <nav class="nav">
+      <div class="nav-section">Main</div>
+
+      <button class="nav-item active" data-page="dashboard" onclick="navigateTo('dashboard')">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+        <span>Dashboard</span>
+      </button>
+
+      <button class="nav-item" data-page="sales" onclick="navigateTo('sales')">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        <span>Sales</span>
+      </button>
+
+      <button class="nav-item" data-page="purchase" onclick="navigateTo('purchase')">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+        <span>Purchase</span>
+      </button>
+
+      <button class="nav-item" data-page="stock" onclick="navigateTo('stock')">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+        <span>Stock</span>
+      </button>
+
+      <button class="nav-item" data-page="reports" onclick="navigateTo('reports')">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5.586a1 1 0 0 1 .707.293l5.414 5.414a1 1 0 0 1 .293.707V19a2 2 0 0 1-2 2z"/></svg>
+        <span>Reports</span>
+      </button>
+
+      <div class="nav-section">Intelligence</div>
+
+      <button class="nav-item" data-page="ai" onclick="navigateTo('ai')">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+        <span>AI Insights</span>
+      </button>
+
+      <div class="nav-section" id="admin-nav-section">Admin</div>
+
+      <button class="nav-item" data-page="users" onclick="navigateTo('users')" id="nav-users">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        <span>Users &amp; Staff</span>
+      </button>
+
+      <button class="nav-item" data-page="business" onclick="navigateTo('business')" id="nav-business">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+        <span>Business Profile</span>
+      </button>
+
+    </nav>
+    <div class="nav-bottom">
+      <div class="user-chip">
+        <div class="user-avatar" id="user-avatar">A</div>
+        <div>
+          <div class="user-name" id="user-name-display">Admin</div>
+          <div class="user-role" id="user-role-display">Administrator</div>
+        </div>
+      </div>
+      <button class="nav-item" onclick="doLogout()" style="color:var(--red);">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+        <span>Logout</span>
+      </button>
+    </div>
+  </aside>
+
+  <!-- ── MAIN CONTENT ── -->
+  <main class="main-area">
+
+    <!-- ════════════════════════════════════════
+         DASHBOARD PAGE
+    ════════════════════════════════════════ -->
+    <div id="page-dashboard" class="page active">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Dashboard</div>
+          <div class="page-sub" id="dash-date">Loading...</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span class="rt-dot"></span>
+          <span style="font-size:12px;color:var(--text2);">Live</span>
+        </div>
+      </div>
+
+      <div class="stat-grid">
+        <div class="stat-card">
+          <div class="stat-label">Today's Revenue</div>
+          <div class="stat-value" id="dash-revenue">—</div>
+          <div class="stat-change up" id="dash-bills">Loading...</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Today's Purchases</div>
+          <div class="stat-value" id="dash-purchase">—</div>
+          <div class="stat-change neutral">Procurement today</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Total Stock</div>
+          <div class="stat-value" id="dash-stock">—</div>
+          <div class="stat-change" id="dash-low-count">Loading...</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Est. Profit (38%)</div>
+          <div class="stat-value" id="dash-profit">—</div>
+          <div class="stat-change up">Gross margin</div>
+        </div>
+      </div>
+
+      <div class="grid2">
+        <div class="card">
+          <div class="section-head"><div class="section-title">Monthly Sales Trend</div></div>
+          <div class="chart-wrap"><canvas id="chart-monthly"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="section-head"><div class="section-title">🔥 Fast Selling Articles</div></div>
+          <div id="dash-fast-selling"><div class="loading-row">Loading...</div></div>
+        </div>
+      </div>
+
+      <div class="grid2">
+        <div class="card">
+          <div class="section-head"><div class="section-title">⚠️ Low Stock Alerts</div></div>
+          <div id="dash-low-stock"><div class="loading-row">Loading...</div></div>
+        </div>
+        <div class="card">
+          <div class="section-head"><div class="section-title">🧾 Recent Bills</div></div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Customer</th><th>Voucher</th><th>Amount</th></tr></thead>
+              <tbody id="dash-recent-bills"><tr><td colspan="3" class="loading-row">Loading...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ════════════════════════════════════════
+         SALES PAGE
+    ════════════════════════════════════════ -->
+    <div id="page-sales" class="page">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Sales</div>
+          <div class="page-sub" id="sales-count">Loading bills...</div>
+        </div>
+        <button class="btn btn-primary" onclick="openSaleModal()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+          New Sale Bill
+        </button>
+      </div>
+      <div class="search-bar">
+        <input class="form-input" id="sales-search" placeholder="Search by customer or voucher..." oninput="filterSales()" />
+      </div>
+      <div class="card">
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Customer</th><th>Voucher</th><th>Date</th><th>Items</th><th>Total</th><th>Action</th></tr></thead>
+            <tbody id="sales-table-body"><tr><td colspan="6" class="loading-row">Loading...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ════════════════════════════════════════
+         PURCHASE PAGE
+    ════════════════════════════════════════ -->
+    <div id="page-purchase" class="page">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Purchase</div>
+          <div class="page-sub" id="purchase-count">Loading orders...</div>
+        </div>
+        <button class="btn btn-primary" onclick="openPurchaseModal()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+          New Purchase
+        </button>
+      </div>
+      <div class="card">
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Supplier</th><th>Voucher</th><th>Date</th><th>Items</th><th>Total</th><th>Action</th></tr></thead>
+            <tbody id="purchase-table-body"><tr><td colspan="6" class="loading-row">Loading...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ════════════════════════════════════════
+         STOCK PAGE
+    ════════════════════════════════════════ -->
+    <div id="page-stock" class="page">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Stock</div>
+          <div class="page-sub" id="stock-count">Loading articles...</div>
+        </div>
+        <button class="btn btn-primary" onclick="openAddStockModal()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+          Add Article
+        </button>
+      </div>
+      <div class="search-bar">
+        <input class="form-input" id="stock-search" placeholder="Search articles or category..." oninput="filterStock()" />
+      </div>
+      <div class="card">
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Article Name</th><th>Category</th><th>Stock Qty</th><th>Sale Rate</th><th>Purchase Rate</th><th>Margin</th><th>Actions</th></tr></thead>
+            <tbody id="stock-table-body"><tr><td colspan="7" class="loading-row">Loading...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ════════════════════════════════════════
+         REPORTS PAGE
+    ════════════════════════════════════════ -->
+    <div id="page-reports" class="page">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Reports</div>
+          <div class="page-sub">Business analytics overview</div>
+        </div>
+        <button class="btn btn-success" onclick="sendEmail()" id="email-btn">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,12 2,6"/></svg>
+          Send Daily Report Email
+        </button>
+      </div>
+      <div class="stat-grid">
+        <div class="stat-card"><div class="stat-label">Total Revenue</div><div class="stat-value" id="rep-revenue">—</div><div class="stat-change neutral">All time</div></div>
+        <div class="stat-card"><div class="stat-label">Total Purchases</div><div class="stat-value" id="rep-purchase">—</div><div class="stat-change neutral">All time</div></div>
+        <div class="stat-card"><div class="stat-label">Est. Gross Profit</div><div class="stat-value" id="rep-profit">—</div><div class="stat-change up">~38% margin</div></div>
+        <div class="stat-card"><div class="stat-label">Total Bills</div><div class="stat-value" id="rep-bills">—</div><div class="stat-change neutral">Sales orders</div></div>
+      </div>
+      <div class="grid2">
+        <div class="card">
+          <div class="section-head"><div class="section-title">Sales by Category</div></div>
+          <div class="chart-wrap"><canvas id="chart-category"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="section-head"><div class="section-title">Best Selling Articles</div></div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>#</th><th>Article</th><th>Qty Sold</th></tr></thead>
+              <tbody id="rep-best-selling"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="section-head"><div class="section-title">Monthly Performance</div></div>
+        <div id="rep-monthly-grid" style="display:grid;grid-template-columns:repeat(6,1fr);gap:8px;"></div>
+      </div>
+    </div>
+
+    <!-- ════════════════════════════════════════
+         AI INSIGHTS PAGE
+    ════════════════════════════════════════ -->
+    <div id="page-ai" class="page">
+      <div class="page-header">
+        <div>
+          <div class="page-title">AI Insights</div>
+          <div class="page-sub">Powered by OpenRouter AI · Google Trend Signals</div>
+        </div>
+        <div style="display:flex;gap:10px;">
+          <button class="btn btn-ghost" onclick="loadAITrends(true)" id="ai-refresh-btn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+            Refresh Trends
+          </button>
+          <button class="btn btn-primary" onclick="getAIPrediction()" id="ai-btn">
+            🤖 Get AI Prediction
+          </button>
+        </div>
+      </div>
+
+      <!-- Google Trends Section -->
+      <div class="card" style="margin-bottom:16px;border-color:var(--accent-dim);">
+        <div class="section-head">
+          <div>
+            <div class="section-title">📈 Top Google Searches — Your Business Category</div>
+            <div style="font-size:12px;color:var(--text3);margin-top:3px;" id="ai-trends-meta">Based on your business profile category</div>
+          </div>
+          <span class="badge badge-purple" id="ai-trends-cache-badge"></span>
+        </div>
+        <div id="ai-trends-container">
+          <div class="loading-row">Click "Refresh Trends" to load AI-powered Google trend data for your category...</div>
+        </div>
+      </div>
+
+      <!-- Rising Fast -->
+      <div class="card" style="margin-bottom:16px;">
+        <div class="section-head"><div class="section-title">🚀 Rising Fast Right Now</div></div>
+        <div id="ai-rising-fast" style="display:flex;flex-wrap:wrap;gap:8px;min-height:32px;">
+          <span style="color:var(--text3);font-size:13px;">Load trends to see rising search terms</span>
+        </div>
+      </div>
+
+      <!-- AI Prediction Panel -->
+      <div class="ai-card">
+        <div class="ai-header">
+          <div class="ai-pulse"></div>
+          <div class="ai-title">Sales Prediction Engine — OpenRouter AI</div>
+        </div>
+        <div class="ai-content" id="ai-content">Click "Get AI Prediction" to analyse your store data and receive upcoming sales forecasts, restock recommendations, and festival demand tips...</div>
+      </div>
+
+      <div class="grid2">
+        <div class="card">
+          <div class="section-head"><div class="section-title">🔥 Fast Selling (Last 30 Days)</div></div>
+          <div id="ai-fast-selling"><div class="loading-row">Load dashboard first</div></div>
+        </div>
+        <div class="card">
+          <div class="section-head"><div class="section-title">⚠️ Low Stock Alert</div></div>
+          <div id="ai-low-stock"><div class="loading-row">Load dashboard first</div></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="section-head"><div class="section-title">🗓️ Season &amp; Festival Demand Forecast</div></div>
+        <div id="ai-forecast" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;"></div>
+      </div>
+    </div>
+
+    <!-- ════════════════════════════════════════
+         USERS & STAFF PAGE
+    ════════════════════════════════════════ -->
+    <div id="page-users" class="page">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Users &amp; Staff</div>
+          <div class="page-sub" id="users-count">Loading...</div>
+        </div>
+        <div style="display:flex;gap:10px;">
+          <button class="btn btn-ghost" onclick="openAddUserModal('staff')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+            Add Staff
+          </button>
+          <button class="btn btn-primary" onclick="openAddUserModal('admin')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+            Add Admin
+          </button>
+        </div>
+      </div>
+
+      <!-- Role summary cards -->
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px;">
+        <div class="stat-card">
+          <div class="stat-label">Total Users</div>
+          <div class="stat-value" id="users-total-count">—</div>
+          <div class="stat-change neutral">All accounts</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Admins</div>
+          <div class="stat-value" id="users-admin-count">—</div>
+          <div class="stat-change up">Full access</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Staff Members</div>
+          <div class="stat-value" id="users-staff-count">—</div>
+          <div class="stat-change neutral">Limited access</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>User</th><th>Role</th><th>Email</th><th>Phone</th><th>Joined</th><th>Status</th><th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="users-table-body"><tr><td colspan="7" class="loading-row">Loading...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ════════════════════════════════════════
+         BUSINESS PROFILE PAGE
+    ════════════════════════════════════════ -->
+    <div id="page-business" class="page">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Business Profile</div>
+          <div class="page-sub">Your store details &amp; configuration</div>
+        </div>
+        <button class="btn btn-primary" onclick="openBizEditModal()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          Edit Profile
+        </button>
+      </div>
+
+      <!-- Hero card -->
+      <div class="card" style="margin-bottom:16px;background:linear-gradient(135deg,#1a1730,var(--bg3));">
+        <div style="display:flex;align-items:center;gap:20px;">
+          <div id="biz-avatar" style="width:64px;height:64px;border-radius:16px;background:var(--accent-dim);display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:700;color:var(--accent2);font-family:'Space Mono',monospace;flex-shrink:0;">SC</div>
+          <div>
+            <div style="font-size:22px;font-weight:700;color:var(--text);" id="biz-display-name">My Clothing Store</div>
+            <div style="font-size:13px;color:var(--text2);margin-top:4px;" id="biz-display-cat">Garments</div>
+            <div style="display:flex;gap:8px;margin-top:8px;" id="biz-display-channels">
+              <span class="badge badge-green">🏪 Physical Store</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid2">
+        <!-- Business Info -->
+        <div class="card">
+          <div class="section-head"><div class="section-title">🏢 Business Information</div></div>
+          <table class="data-table" style="font-size:13px;">
+            <tbody>
+              <tr><td style="color:var(--text3);width:45%;">Owner Name</td><td id="biz-display-owner">—</td></tr>
+              <tr><td style="color:var(--text3);">Nature</td><td id="biz-display-nature">—</td></tr>
+              <tr><td style="color:var(--text3);">Category</td><td id="biz-display-cat2">—</td></tr>
+              <tr><td style="color:var(--text3);">Est. Year</td><td id="biz-display-year">—</td></tr>
+              <tr><td style="color:var(--text3);">Website</td><td id="biz-display-website" style="word-break:break-all;">—</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Contact Info -->
+        <div class="card">
+          <div class="section-head"><div class="section-title">📞 Contact &amp; Location</div></div>
+          <table class="data-table" style="font-size:13px;">
+            <tbody>
+              <tr><td style="color:var(--text3);width:40%;">Phone</td><td id="biz-display-phone">—</td></tr>
+              <tr><td style="color:var(--text3);">Email</td><td id="biz-display-email">—</td></tr>
+              <tr><td style="color:var(--text3);">City/State</td><td id="biz-display-city">—</td></tr>
+              <tr><td style="color:var(--text3);">Address</td><td id="biz-display-address">—</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Tax Info -->
+        <div class="card">
+          <div class="section-head"><div class="section-title">🧾 Tax &amp; Compliance</div></div>
+          <table class="data-table" style="font-size:13px;">
+            <tbody>
+              <tr><td style="color:var(--text3);width:40%;">GST Number</td><td id="biz-display-gst">—</td></tr>
+              <tr><td style="color:var(--text3);">PAN Number</td><td id="biz-display-pan">—</td></tr>
+              <tr><td style="color:var(--text3);">Sell Online</td><td id="biz-display-online">—</td></tr>
+              <tr><td style="color:var(--text3);">Physical Store</td><td id="biz-display-physical">—</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Selling Items -->
+        <div class="card">
+          <div class="section-head"><div class="section-title">🛍️ What You Sell</div></div>
+          <div id="biz-display-items-wrap" style="display:flex;flex-wrap:wrap;gap:8px;min-height:40px;">
+            <span style="color:var(--text3);font-size:13px);">—</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     MODALS
+═══════════════════════════════════════════ -->
+
+<!-- New Sale Modal -->
+<div id="modal-sale" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-title">🧾 New Sale Bill</div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Customer Name *</label>
+        <input id="sale-customer" class="form-input" placeholder="Customer name" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Voucher No.</label>
+        <input id="sale-voucher" class="form-input" placeholder="Auto-generated" />
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Date</label>
+        <input id="sale-date" class="form-input" type="date" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Narration</label>
+        <input id="sale-narration" class="form-input" placeholder="Optional note" />
+      </div>
+    </div>
+    <div class="section-title" style="margin-bottom:10px;">Items</div>
+    <div id="sale-items-wrap" class="bill-items-wrap"></div>
+    <button class="btn btn-ghost btn-sm" onclick="addSaleItem()" style="margin-top:6px;">+ Add Item</button>
+    <div class="bill-total" id="sale-total-display" style="color:var(--green);">Total: ₹0.00</div>
+    <div id="sale-error" class="form-error" style="margin-top:8px;font-size:13px;color:var(--red);"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('modal-sale')">Cancel</button>
+      <button class="btn btn-primary" onclick="submitSale()">Save Bill ✓</button>
+    </div>
+  </div>
+</div>
+
+<!-- New Purchase Modal -->
+<div id="modal-purchase" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-title">📦 New Purchase Order</div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Supplier Name *</label>
+        <input id="pur-supplier" class="form-input" placeholder="Supplier name" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Voucher No.</label>
+        <input id="pur-voucher" class="form-input" placeholder="Auto-generated" />
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Date</label>
+        <input id="pur-date" class="form-input" type="date" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Narration</label>
+        <input id="pur-narration" class="form-input" placeholder="Optional note" />
+      </div>
+    </div>
+    <div class="section-title" style="margin-bottom:10px;">Items</div>
+    <div id="pur-items-wrap" class="bill-items-wrap"></div>
+    <button class="btn btn-ghost btn-sm" onclick="addPurchaseItem()" style="margin-top:6px;">+ Add Item</button>
+    <div class="bill-total" id="pur-total-display" style="color:var(--amber);">Total: ₹0.00</div>
+    <div id="pur-error" class="form-error" style="margin-top:8px;font-size:13px;color:var(--red);"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('modal-purchase')">Cancel</button>
+      <button class="btn btn-primary" onclick="submitPurchase()">Save Purchase ✓</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add/Edit Stock Modal -->
+<div id="modal-stock" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-title" id="stock-modal-title">Add New Article</div>
+    <input type="hidden" id="stock-edit-id" />
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Article Name *</label>
+        <input id="stock-name" class="form-input" placeholder="e.g. Blue Denim Jacket" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Category</label>
+        <select id="stock-category" class="form-input">
+          <option value="">Select category</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row3">
+      <div class="form-group">
+        <label class="form-label">Opening Qty</label>
+        <input id="stock-qty" class="form-input" type="number" value="0" min="0" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Sale Rate (₹)</label>
+        <input id="stock-sale-rate" class="form-input" type="number" value="0" min="0" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Purchase Rate (₹)</label>
+        <input id="stock-purchase-rate" class="form-input" type="number" value="0" min="0" />
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Low Stock Threshold</label>
+      <input id="stock-threshold" class="form-input" type="number" value="5" min="0" />
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('modal-stock')">Cancel</button>
+      <button class="btn btn-primary" onclick="submitStock()">Save Article</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add/Edit User Modal -->
+<div id="modal-user" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-title" id="user-modal-title">Add New Staff</div>
+    <input type="hidden" id="user-edit-id" />
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Full Name *</label>
+        <input id="user-name" class="form-input" placeholder="Full name" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Username *</label>
+        <input id="user-username" class="form-input" placeholder="Login username" />
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Email</label>
+        <input id="user-email" class="form-input" type="email" placeholder="email@example.com" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Phone</label>
+        <input id="user-phone" class="form-input" placeholder="Mobile number" />
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group" id="user-password-wrap">
+        <label class="form-label">Password *</label>
+        <input id="user-password" class="form-input" type="password" placeholder="Min 6 characters" />
+        <div id="user-password-note" class="form-error" style="color:var(--text3);font-size:11px;margin-top:4px;">Leave blank to keep existing password</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Role</label>
+        <select id="user-role" class="form-input">
+          <option value="staff">Staff</option>
+          <option value="admin">Admin</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Role description -->
+    <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:12px;font-size:12px;color:var(--text2);">
+      <strong style="color:var(--text);">Role permissions:</strong><br>
+      <span style="color:var(--accent2);">Admin</span> — Full access: manage users, edit business profile, view all reports, send emails<br>
+      <span style="color:var(--green);">Staff</span> — Can create sales, purchases, and manage stock. Cannot manage users or business settings.
+    </div>
+
+    <div id="user-error" class="form-error" style="color:var(--red);"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('modal-user')">Cancel</button>
+      <button class="btn btn-primary" onclick="submitUser()">Save User</button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Business Profile Modal -->
+<div id="modal-business" class="modal-overlay hidden">
+  <div class="modal" style="width:680px;">
+    <div class="modal-title">🏢 Edit Business Profile</div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Business Name *</label>
+        <input id="biz-name" class="form-input" placeholder="Your store name" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Owner Name</label>
+        <input id="biz-owner" class="form-input" placeholder="Proprietor / Owner" />
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Business Category</label>
+        <select id="biz-category" class="form-input">
+          <option value="">Select category</option>
+          <option value="Garments">Garments / Clothing</option>
+          <option value="Grocery">Grocery / Kirana</option>
+          <option value="Electronics">Electronics</option>
+          <option value="Pharmacy">Pharmacy / Medical</option>
+          <option value="Furniture">Furniture / Home Decor</option>
+          <option value="Footwear">Footwear</option>
+          <option value="Jewellery">Jewellery</option>
+          <option value="Stationery">Stationery / Books</option>
+          <option value="Hardware">Hardware / Tools</option>
+          <option value="Cosmetics">Cosmetics / Beauty</option>
+          <option value="Toys">Toys / Games</option>
+          <option value="Sports">Sports / Fitness</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Nature of Business</label>
+        <select id="biz-nature" class="form-input">
+          <option value="">Select nature</option>
+          <option value="Retail">Retail</option>
+          <option value="Wholesale">Wholesale</option>
+          <option value="Manufacturing">Manufacturing</option>
+          <option value="Distribution">Distribution</option>
+          <option value="Both Retail & Wholesale">Both Retail &amp; Wholesale</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Main Selling Items (comma separated)</label>
+      <input id="biz-items" class="form-input" placeholder="e.g. Shirts, Jeans, Jackets, Dresses" />
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Phone</label>
+        <input id="biz-phone" class="form-input" placeholder="Store phone number" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Email</label>
+        <input id="biz-email" class="form-input" type="email" placeholder="store@example.com" />
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Address</label>
+      <input id="biz-address" class="form-input" placeholder="Full address" />
+    </div>
+    <div class="form-row3">
+      <div class="form-group">
+        <label class="form-label">City</label>
+        <input id="biz-city" class="form-input" placeholder="City" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">State</label>
+        <input id="biz-state" class="form-input" placeholder="State" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Pincode</label>
+        <input id="biz-pincode" class="form-input" placeholder="Pincode" />
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">GST Number</label>
+        <input id="biz-gst" class="form-input" placeholder="22AAAAA0000A1Z5" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">PAN Number</label>
+        <input id="biz-pan" class="form-input" placeholder="AAAAA0000A" />
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Website URL</label>
+        <input id="biz-website" class="form-input" placeholder="https://yourstore.com" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Established Year</label>
+        <input id="biz-year" class="form-input" type="number" placeholder="2020" min="1900" max="2099" />
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Where Do You Sell?</label>
+      <div style="display:flex;gap:20px;margin-top:8px;">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:var(--text2);">
+          <input type="checkbox" id="biz-physical" style="width:15px;height:15px;accent-color:var(--accent);" checked />
+          🏪 Physical Store
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:var(--text2);">
+          <input type="checkbox" id="biz-online" style="width:15px;height:15px;accent-color:var(--accent);" />
+          🌐 Online (Website / App)
+        </label>
+      </div>
+    </div>
+    <div id="biz-error" class="form-error" style="color:var(--red);"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('modal-business')">Cancel</button>
+      <button class="btn btn-primary" onclick="submitBusiness()">Save Profile</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast Container -->
+<div id="toast-container"></div>
+
+<!-- ═══════════════════════════════════════════
+     SCRIPTS — ORDER MATTERS
+═══════════════════════════════════════════ -->
+<script src="/js/api.js"></script>
+<script src="/js/app.js"></script>
+<script src="/js/dashboard.js"></script>
+<script src="/js/sales.js"></script>
+<script src="/js/purchases.js"></script>
+<script src="/js/stock.js"></script>
+<script src="/js/reports.js"></script>
+<script src="/js/ai.js"></script>
+<script src="/js/users.js"></script>
+<script src="/js/business.js"></script>
+</body>
+</html>
