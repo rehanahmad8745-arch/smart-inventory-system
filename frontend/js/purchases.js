@@ -1,8 +1,8 @@
 // frontend/js/purchases.js
-// Purchase page: list orders, new purchase modal
+// Purchases: list + Tally-style Add Purchase Bill modal
 
 let allPurchases = [];
-let purItemCount = 0;
+let purItemRows = [];
 
 async function loadPurchases() {
     const res = await API.getPurchases();
@@ -34,69 +34,98 @@ function renderPurchaseTable(purchases) {
         </tr>`).join('');
 }
 
-// ── New Purchase Modal ────────────────────────────────────────────────────
+// ── New Purchase Modal (Tally-style) ──────────────────────────────────────────
 function openPurchaseModal() {
+    document.getElementById('pur-date').value = today();
     document.getElementById('pur-supplier').value = '';
     document.getElementById('pur-voucher').value = '';
-    document.getElementById('pur-date').value = today();
     document.getElementById('pur-narration').value = '';
     document.getElementById('pur-error').textContent = '';
-    document.getElementById('pur-items-wrap').innerHTML = '';
-    purItemCount = 0;
-    addPurchaseItem();
+
+    purItemRows = [];
+    const tbody = document.getElementById('pur-bill-tbody');
+    tbody.innerHTML = '';
+    for (let i = 0; i < 13; i++) addPurBillRow();
+
+    recalcPurBill();
     openModal('modal-purchase');
+
+    setTimeout(() => {
+        const firstSel = document.querySelector('#pur-bill-tbody .bill-item-sel');
+        if (firstSel) firstSel.focus();
+    }, 100);
 }
 
-function addPurchaseItem() {
-    const idx = purItemCount++;
-    const wrap = document.getElementById('pur-items-wrap');
-    const div = document.createElement('div');
-    div.className = 'bill-item';
-    div.id = 'pur-item-' + idx;
+function addPurBillRow() {
+    const idx = purItemRows.length;
+    purItemRows.push(idx);
+    const tbody = document.getElementById('pur-bill-tbody');
+    const tr = document.createElement('tr');
+    tr.id = 'pbr-' + idx;
+    tr.className = 'bill-row';
+
     const opts = stockCache.map(s =>
         `<option value="${s.id}" data-rate="${s.purchase_rate}">${s.name}</option>`
     ).join('');
-    div.innerHTML = `
-        <div class="bill-item-grid">
-            <select class="form-input" id="pi-name-${idx}" onchange="onPurItemChange(${idx})">
-                <option value="">Select item</option>
+
+    tr.innerHTML = `
+        <td class="bill-sn">${idx + 1}</td>
+        <td class="bill-item-cell">
+            <select class="bill-item-sel" id="pb-item-${idx}" onchange="onPurBillItemChange(${idx})">
+                <option value="">— Select Item —</option>
                 ${opts}
             </select>
-            <input class="form-input" type="number" id="pi-qty-${idx}" value="1" min="1" placeholder="Qty" oninput="recalcPurTotal()" />
-            <input class="form-input" type="number" id="pi-rate-${idx}" value="0" placeholder="Rate ₹" oninput="recalcPurTotal()" />
-            <div style="font-size:13px;font-weight:600;color:var(--amber);font-family:'Space Mono',monospace;" id="pi-total-${idx}">₹0.00</div>
-            <button class="btn btn-sm btn-danger" onclick="removePurItem(${idx})" style="padding:4px 8px;">✕</button>
-        </div>`;
-    wrap.appendChild(div);
-    recalcPurTotal();
+        </td>
+        <td><input class="bill-num-input" type="number" id="pb-qty-${idx}" value="" placeholder="0" min="0.001" step="0.001" oninput="recalcPurBill()"></td>
+        <td>
+            <select class="bill-unit-sel" id="pb-unit-${idx}">
+                <option>PCS</option><option>KG</option><option>MTR</option><option>BOX</option><option>SET</option>
+            </select>
+        </td>
+        <td><input class="bill-num-input" type="number" id="pb-rate-${idx}" value="" placeholder="0.00" min="0" step="0.01" oninput="recalcPurBill()"></td>
+        <td class="bill-amount-cell" id="pb-total-${idx}">0.00</td>
+    `;
+    tbody.appendChild(tr);
+
+    tr.addEventListener('keydown', function(e) {
+        if (e.key === 'Tab' && idx === purItemRows.length - 1 && !e.shiftKey) {
+            e.preventDefault();
+            addPurBillRow();
+            setTimeout(() => {
+                const newSel = document.getElementById('pb-item-' + (idx + 1));
+                if (newSel) newSel.focus();
+            }, 50);
+        }
+    });
 }
 
-function removePurItem(idx) {
-    document.getElementById('pur-item-' + idx)?.remove();
-    recalcPurTotal();
-}
-
-function onPurItemChange(idx) {
-    const sel = document.getElementById('pi-name-' + idx);
+function onPurBillItemChange(idx) {
+    const sel = document.getElementById('pb-item-' + idx);
     const opt = sel.options[sel.selectedIndex];
-    if (opt.dataset.rate) {
-        document.getElementById('pi-rate-' + idx).value = opt.dataset.rate;
+    if (opt && opt.dataset.rate) {
+        document.getElementById('pb-rate-' + idx).value = parseFloat(opt.dataset.rate).toFixed(2);
+        const qtyEl = document.getElementById('pb-qty-' + idx);
+        if (!qtyEl.value) qtyEl.value = '1';
+        qtyEl.focus();
     }
-    recalcPurTotal();
+    recalcPurBill();
 }
 
-function recalcPurTotal() {
+function recalcPurBill() {
     let total = 0;
-    document.querySelectorAll('#pur-items-wrap .bill-item').forEach(div => {
-        const idx  = div.id.replace('pur-item-', '');
-        const qty  = parseFloat(document.getElementById('pi-qty-' + idx)?.value) || 0;
-        const rate = parseFloat(document.getElementById('pi-rate-' + idx)?.value) || 0;
+    purItemRows.forEach(idx => {
+        const qtyEl   = document.getElementById('pb-qty-' + idx);
+        const rateEl  = document.getElementById('pb-rate-' + idx);
+        const totalEl = document.getElementById('pb-total-' + idx);
+        if (!qtyEl) return;
+        const qty  = parseFloat(qtyEl.value)  || 0;
+        const rate = parseFloat(rateEl?.value) || 0;
         const line = qty * rate;
         total += line;
-        const totEl = document.getElementById('pi-total-' + idx);
-        if (totEl) totEl.textContent = fmt(line);
+        if (totalEl) totalEl.textContent = line > 0 ? line.toFixed(2) : '0.00';
     });
-    document.getElementById('pur-total-display').textContent = 'Total: ' + fmt(total);
+    const totEl = document.getElementById('pur-total-display');
+    if (totEl) totEl.textContent = '₹' + total.toFixed(2);
 }
 
 async function submitPurchase() {
@@ -107,30 +136,38 @@ async function submitPurchase() {
     const errEl     = document.getElementById('pur-error');
     errEl.textContent = '';
 
-    if (!supplier) { errEl.textContent = 'Supplier name is required'; return; }
+    if (!supplier) { errEl.textContent = '⚠ Supplier name is required'; return; }
 
     const items = [];
-    document.querySelectorAll('#pur-items-wrap .bill-item').forEach(div => {
-        const idx  = div.id.replace('pur-item-', '');
-        const sel  = document.getElementById('pi-name-' + idx);
-        const qty  = parseInt(document.getElementById('pi-qty-' + idx)?.value) || 0;
-        const rate = parseFloat(document.getElementById('pi-rate-' + idx)?.value) || 0;
-        if (!sel?.value || qty <= 0 || rate <= 0) return;
-        items.push({ stock_id: parseInt(sel.value), qty, rate });
+    purItemRows.forEach(idx => {
+        const selEl  = document.getElementById('pb-item-' + idx);
+        const qtyEl  = document.getElementById('pb-qty-' + idx);
+        const rateEl = document.getElementById('pb-rate-' + idx);
+        const unitEl = document.getElementById('pb-unit-' + idx);
+        if (!selEl?.value) return;
+        const qty  = parseFloat(qtyEl?.value)  || 0;
+        const rate = parseFloat(rateEl?.value) || 0;
+        if (qty <= 0 || rate <= 0) return;
+        items.push({ stock_id: parseInt(selEl.value), qty, unit: unitEl?.value || 'PCS', rate });
     });
 
-    if (!items.length) { errEl.textContent = 'Add at least one valid item'; return; }
+    if (!items.length) { errEl.textContent = '⚠ Add at least one valid item'; return; }
+
+    const btn = document.querySelector('#modal-purchase .btn-primary');
+    if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
 
     const payload = { supplier_name: supplier, voucher_no: voucher || undefined, purchase_date: date, narration, items };
     const res = await API.createPurchase(payload);
+
+    if (btn) { btn.disabled = false; btn.textContent = 'Save Bill'; }
+
     if (!res || !res.success) {
-        errEl.textContent = res?.message || 'Failed to save purchase';
+        errEl.textContent = '❌ ' + (res?.message || 'Failed to save purchase');
         return;
     }
-    toast('Purchase saved! Voucher: ' + res.voucher, 'success');
+    toast('✅ Purchase saved! Voucher: ' + res.voucher, 'success');
     closeModal('modal-purchase');
     loadPurchases();
-    // Refresh stock cache
     const stockRes = await API.getStock();
     if (stockRes?.success) stockCache = stockRes.data;
 }

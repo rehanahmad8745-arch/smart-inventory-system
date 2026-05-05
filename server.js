@@ -31,6 +31,7 @@ app.use('/api/reports',   require('./backend/routes/reports'));
 app.use('/api/users',     require('./backend/routes/users'));
 app.use('/api/business',  require('./backend/routes/business'));
 app.use('/api/aitrends',  require('./backend/routes/aitrends'));
+app.use('/api/settings',  require('./backend/routes/settings'));
 
 app.get('/api/health', (req, res) => res.json({ success:true, message:'StockSense AI v2 running', time: new Date() }));
 
@@ -120,6 +121,7 @@ server.listen(PORT, () => {
     console.log(`\n  Admin:  admin / password`);
     console.log(`  Staff:  staff / password\n`);
 });
+
 
 // Serve frontend (correct for your structure)
 app.use(express.static(path.join(__dirname, 'frontend')));

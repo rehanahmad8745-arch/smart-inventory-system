@@ -1,8 +1,8 @@
 // frontend/js/sales.js
-// Sales page: list bills, new sale modal, negative stock validation
+// Sales: list + Tally-style Add Bill modal
 
 let allSales = [];
-let saleItemCount = 0;
+let saleItemRows = []; // array of row indices
 
 async function loadSales() {
     const res = await API.getSales();
@@ -42,111 +42,175 @@ function filterSales() {
     ));
 }
 
-// ── New Sale Modal ────────────────────────────────────────────────────────
+// ── New Sale Modal (Tally-style) ──────────────────────────────────────────────
 function openSaleModal() {
-    // Reset
+    // Set defaults
+    document.getElementById('sale-date').value = today();
     document.getElementById('sale-customer').value = '';
     document.getElementById('sale-voucher').value = '';
-    document.getElementById('sale-date').value = today();
     document.getElementById('sale-narration').value = '';
+    document.getElementById('sale-discount').value = '0';
+    document.getElementById('sale-type').value = 'L/GST-No Tax';
     document.getElementById('sale-error').textContent = '';
-    document.getElementById('sale-items-wrap').innerHTML = '';
-    saleItemCount = 0;
-    addSaleItem(); // Add one row by default
+
+    // Build item rows
+    saleItemRows = [];
+    const tbody = document.getElementById('sale-bill-tbody');
+    tbody.innerHTML = '';
+    // Add 13 empty rows by default (Tally style)
+    for (let i = 0; i < 13; i++) addSaleBillRow();
+
+    recalcSaleBill();
     openModal('modal-sale');
+
+    // Focus first item field
+    setTimeout(() => {
+        const firstSel = document.querySelector('#sale-bill-tbody .bill-item-sel');
+        if (firstSel) firstSel.focus();
+    }, 100);
 }
 
-function addSaleItem() {
-    const idx = saleItemCount++;
-    const wrap = document.getElementById('sale-items-wrap');
-    const div = document.createElement('div');
-    div.className = 'bill-item';
-    div.id = 'sale-item-' + idx;
-    // Build stock options from cache
+function addSaleBillRow() {
+    const idx = saleItemRows.length;
+    saleItemRows.push(idx);
+    const tbody = document.getElementById('sale-bill-tbody');
+    const tr = document.createElement('tr');
+    tr.id = 'sbr-' + idx;
+    tr.className = 'bill-row';
+
     const opts = stockCache.map(s =>
-        `<option value="${s.id}" data-rate="${s.sale_rate}" data-qty="${s.qty}">${s.name} (${s.qty} in stock)</option>`
+        `<option value="${s.id}" data-rate="${s.sale_rate}" data-qty="${s.qty}">${s.name}</option>`
     ).join('');
-    div.innerHTML = `
-        <div class="bill-item-grid">
-            <select class="form-input" id="si-name-${idx}" onchange="onSaleItemChange(${idx})">
-                <option value="">Select item</option>
+
+    tr.innerHTML = `
+        <td class="bill-sn">${idx + 1}</td>
+        <td class="bill-item-cell">
+            <select class="bill-item-sel" id="sb-item-${idx}" onchange="onSaleBillItemChange(${idx})">
+                <option value="">— Select Item —</option>
                 ${opts}
             </select>
-            <input class="form-input" type="number" id="si-qty-${idx}" value="1" min="1" placeholder="Qty" oninput="recalcSaleTotal()" />
-            <input class="form-input" type="number" id="si-rate-${idx}" value="0" placeholder="Rate ₹" oninput="recalcSaleTotal()" />
-            <div style="font-size:13px;font-weight:600;color:var(--green);font-family:'Space Mono',monospace;" id="si-total-${idx}">₹0.00</div>
-            <button class="btn btn-sm btn-danger" onclick="removeSaleItem(${idx})" style="padding:4px 8px;">✕</button>
-        </div>
-        <div style="font-size:11px;color:var(--red);margin-top:4px;display:none;" id="si-err-${idx}"></div>`;
-    wrap.appendChild(div);
-    recalcSaleTotal();
-}
+        </td>
+        <td><input class="bill-num-input" type="number" id="sb-qty-${idx}" value="" placeholder="0" min="0.001" step="0.001" oninput="recalcSaleBill()"></td>
+        <td>
+            <select class="bill-unit-sel" id="sb-unit-${idx}">
+                <option>PCS</option><option>KG</option><option>MTR</option><option>BOX</option><option>SET</option>
+            </select>
+        </td>
+        <td><input class="bill-num-input" type="number" id="sb-listprice-${idx}" value="" placeholder="0.00" min="0" step="0.01" oninput="recalcSaleBill()"></td>
+        <td><input class="bill-num-input" type="number" id="sb-disc-${idx}" value="0" placeholder="0" min="0" max="100" step="0.01" oninput="recalcSaleBill()"></td>
+        <td><input class="bill-num-input" type="number" id="sb-rate-${idx}" value="" placeholder="0.00" min="0" step="0.01" oninput="recalcSaleBill()"></td>
+        <td class="bill-amount-cell" id="sb-total-${idx}">0.00</td>
+    `;
+    tbody.appendChild(tr);
 
-function removeSaleItem(idx) {
-    document.getElementById('sale-item-' + idx)?.remove();
-    recalcSaleTotal();
-}
-
-function onSaleItemChange(idx) {
-    const sel = document.getElementById('si-name-' + idx);
-    const opt = sel.options[sel.selectedIndex];
-    if (opt.dataset.rate) {
-        document.getElementById('si-rate-' + idx).value = opt.dataset.rate;
-    }
-    recalcSaleTotal();
-}
-
-function recalcSaleTotal() {
-    let total = 0;
-    document.querySelectorAll('#sale-items-wrap .bill-item').forEach(div => {
-        const idx = div.id.replace('sale-item-', '');
-        const qty  = parseFloat(document.getElementById('si-qty-' + idx)?.value) || 0;
-        const rate = parseFloat(document.getElementById('si-rate-' + idx)?.value) || 0;
-        const line = qty * rate;
-        total += line;
-        const totEl = document.getElementById('si-total-' + idx);
-        if (totEl) totEl.textContent = fmt(line);
+    // Tab from last row → add new row
+    tr.addEventListener('keydown', function(e) {
+        if (e.key === 'Tab' && idx === saleItemRows.length - 1 && !e.shiftKey) {
+            e.preventDefault();
+            addSaleBillRow();
+            setTimeout(() => {
+                const newSel = document.getElementById('sb-item-' + (idx + 1));
+                if (newSel) newSel.focus();
+            }, 50);
+        }
     });
-    document.getElementById('sale-total-display').textContent = 'Total: ' + fmt(total);
+}
+
+function onSaleBillItemChange(idx) {
+    const sel = document.getElementById('sb-item-' + idx);
+    const opt = sel.options[sel.selectedIndex];
+    if (opt && opt.dataset.rate) {
+        document.getElementById('sb-listprice-' + idx).value = parseFloat(opt.dataset.rate).toFixed(2);
+        document.getElementById('sb-rate-' + idx).value = parseFloat(opt.dataset.rate).toFixed(2);
+        const qtyEl = document.getElementById('sb-qty-' + idx);
+        if (!qtyEl.value) qtyEl.value = '1';
+        qtyEl.focus();
+    }
+    recalcSaleBill();
+}
+
+function recalcSaleBill() {
+    let subtotal = 0;
+    saleItemRows.forEach(idx => {
+        const qtyEl       = document.getElementById('sb-qty-' + idx);
+        const listEl      = document.getElementById('sb-listprice-' + idx);
+        const discEl      = document.getElementById('sb-disc-' + idx);
+        const rateEl      = document.getElementById('sb-rate-' + idx);
+        const totalEl     = document.getElementById('sb-total-' + idx);
+        if (!qtyEl) return;
+
+        const qty       = parseFloat(qtyEl.value)       || 0;
+        const listPrice = parseFloat(listEl.value)      || 0;
+        const discPct   = parseFloat(discEl.value)      || 0;
+        const rate      = listPrice * (1 - discPct / 100);
+
+        // Auto-update rate when list/disc changes
+        if (listPrice > 0 && rateEl) rateEl.value = rate.toFixed(2);
+
+        const lineTotal = qty * (parseFloat(rateEl?.value) || rate);
+        subtotal += lineTotal;
+        if (totalEl) totalEl.textContent = lineTotal > 0 ? lineTotal.toFixed(2) : '0.00';
+    });
+
+    const billDisc = parseFloat(document.getElementById('sale-discount')?.value) || 0;
+    const total    = subtotal - billDisc;
+
+    const subEl = document.getElementById('sale-subtotal-display');
+    const totEl = document.getElementById('sale-total-display');
+    if (subEl) subEl.textContent = '₹' + subtotal.toFixed(2);
+    if (totEl) totEl.textContent = '₹' + Math.max(0, total).toFixed(2);
 }
 
 async function submitSale() {
-    const customer = document.getElementById('sale-customer').value.trim();
-    const voucher  = document.getElementById('sale-voucher').value.trim();
-    const date     = document.getElementById('sale-date').value;
-    const narration= document.getElementById('sale-narration').value.trim();
-    const errEl    = document.getElementById('sale-error');
+    const customer  = document.getElementById('sale-customer').value.trim();
+    const voucher   = document.getElementById('sale-voucher').value.trim();
+    const date      = document.getElementById('sale-date').value;
+    const narration = document.getElementById('sale-narration').value.trim();
+    const saleType  = document.getElementById('sale-type').value;
+    const discount  = parseFloat(document.getElementById('sale-discount').value) || 0;
+    const errEl     = document.getElementById('sale-error');
     errEl.textContent = '';
 
-    if (!customer) { errEl.textContent = 'Customer name is required'; return; }
+    if (!customer) { errEl.textContent = '⚠ Party/Customer name is required'; return; }
 
-    // Collect items
+    // Collect filled rows
     const items = [];
-    let valid = true;
-    document.querySelectorAll('#sale-items-wrap .bill-item').forEach(div => {
-        const idx   = div.id.replace('sale-item-', '');
-        const selEl = document.getElementById('si-name-' + idx);
-        const qty   = parseInt(document.getElementById('si-qty-' + idx)?.value) || 0;
-        const rate  = parseFloat(document.getElementById('si-rate-' + idx)?.value) || 0;
-        const errI  = document.getElementById('si-err-' + idx);
-        errI.style.display = 'none';
+    saleItemRows.forEach(idx => {
+        const selEl      = document.getElementById('sb-item-' + idx);
+        const qtyEl      = document.getElementById('sb-qty-' + idx);
+        const listEl     = document.getElementById('sb-listprice-' + idx);
+        const discEl     = document.getElementById('sb-disc-' + idx);
+        const rateEl     = document.getElementById('sb-rate-' + idx);
+        const unitEl     = document.getElementById('sb-unit-' + idx);
         if (!selEl?.value) return; // skip empty rows
-        if (qty <= 0) { errI.textContent = 'Qty must be > 0'; errI.style.display = 'block'; valid = false; return; }
-        items.push({ stock_id: parseInt(selEl.value), qty, rate });
+        const qty  = parseFloat(qtyEl?.value) || 0;
+        const rate = parseFloat(rateEl?.value) || 0;
+        if (qty <= 0 || rate <= 0) return;
+        items.push({
+            stock_id:   parseInt(selEl.value),
+            qty,
+            unit:       unitEl?.value || 'PCS',
+            list_price: parseFloat(listEl?.value) || rate,
+            discount:   parseFloat(discEl?.value) || 0,
+            rate
+        });
     });
 
-    if (!valid || !items.length) {
-        if (!items.length) errEl.textContent = 'Add at least one item';
-        return;
-    }
+    if (!items.length) { errEl.textContent = '⚠ Add at least one item with quantity and rate'; return; }
 
-    const payload = { customer_name: customer, voucher_no: voucher || undefined, sale_date: date, narration, items };
+    const btn = document.querySelector('#modal-sale .btn-primary');
+    if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+
+    const payload = { customer_name: customer, voucher_no: voucher || undefined, sale_date: date, sale_type: saleType, narration, discount, items };
     const res = await API.createSale(payload);
+
+    if (btn) { btn.disabled = false; btn.textContent = 'Save Bill'; }
+
     if (!res || !res.success) {
-        errEl.textContent = res?.errors ? res.errors.join(' | ') : (res?.message || 'Failed to save');
+        errEl.textContent = '❌ ' + (res?.errors ? res.errors.join(' | ') : (res?.message || 'Failed to save'));
         return;
     }
-    toast('Bill saved! Voucher: ' + res.voucher, 'success');
+    toast('✅ Bill saved! Voucher: ' + res.voucher, 'success');
     closeModal('modal-sale');
     loadSales();
     // Refresh stock cache

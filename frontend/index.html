@@ -3,40 +3,88 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Smart Inventory AI</title>
+  <title>StockSense AI</title>
   <link rel="stylesheet" href="/css/style.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <script src="/socket.io/socket.io.js"></script>
 </head>
 <body>
 
 <!-- ═══════════════════════════════════════════
-     LOGIN SCREEN
+     LOGIN / REGISTER SCREEN
 ═══════════════════════════════════════════ -->
 <div id="login-screen" class="login-screen">
   <div class="login-box">
     <div class="login-logo">
-      <span class="login-logo-name">⬡ Smart Inventory AI</span>
-      <div style="font-size:12px;color:var(--text3);margin-top:6px;"> Retail Management System</div>
+      <span class="login-logo-name">⬡ StockSense AI</span>
+      <div style="font-size:12px;color:var(--text3);margin-top:6px;">Clothing &amp; Retail Management</div>
     </div>
-    <div class="login-tabs">
-      <button class="login-tab active" data-role="admin" onclick="setLoginRole('admin')">Admin</button>
-      <button class="login-tab" data-role="staff" onclick="setLoginRole('staff')">Staff</button>
+
+    <!-- Login / Register Tabs -->
+    <div class="login-tabs" style="margin-bottom:0;">
+      <button class="login-tab active" onclick="showAuthTab('login')">Sign In</button>
+      <button class="login-tab" onclick="showAuthTab('register')">New Company</button>
     </div>
-    <div id="login-hint" class="login-hint">Hint: admin / password</div>
-    <div id="login-error" class="login-err hidden"></div>
-    <div class="form-group">
-      <label class="form-label">Username</label>
-      <input id="login-username" class="form-input" type="text" placeholder="Enter username" value="admin" />
+
+    <!-- ── LOGIN PANEL ── -->
+    <div id="auth-login">
+      <div class="login-tabs" style="margin-top:12px;">
+        <button class="login-tab active" data-role="admin" onclick="setLoginRole('admin')">Admin</button>
+        <button class="login-tab" data-role="staff" onclick="setLoginRole('staff')">Staff</button>
+      </div>
+      <div id="login-hint" class="login-hint">Hint: admin / password</div>
+      <div id="login-error" class="login-err hidden"></div>
+      <div class="form-group">
+        <label class="form-label">Username</label>
+        <input id="login-username" class="form-input" type="text" placeholder="Enter username" value="admin" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Password</label>
+        <input id="login-password" class="form-input" type="password" placeholder="Enter password" value="password"
+               onkeydown="if(event.key==='Enter') doLogin()" />
+      </div>
+      <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:4px;" onclick="doLogin()">
+        Sign In →
+      </button>
     </div>
-    <div class="form-group">
-      <label class="form-label">Password</label>
-      <input id="login-password" class="form-input" type="password" placeholder="Enter password" value="password"
-             onkeydown="if(event.key==='Enter') doLogin()" />
+
+    <!-- ── REGISTER NEW COMPANY PANEL ── -->
+    <div id="auth-register" class="hidden">
+      <div style="background:var(--accent-dim);border:1px solid var(--accent);border-radius:8px;padding:10px 12px;font-size:12px;color:var(--accent2);margin:12px 0;">
+        🏢 Create a new company account. Each company has its own separate data.
+      </div>
+      <div id="reg-error" class="login-err hidden"></div>
+      <div id="reg-success" class="hidden" style="background:var(--green-dim);border:1px solid var(--green);border-radius:8px;padding:10px 12px;font-size:12px;color:var(--green);margin:8px 0;"></div>
+      <div class="form-group">
+        <label class="form-label">Company / Store Name *</label>
+        <input id="reg-bizname" class="form-input" placeholder="e.g. HBS Clothing Store" />
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Your Full Name *</label>
+          <input id="reg-name" class="form-input" placeholder="Owner name" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Username *</label>
+          <input id="reg-username" class="form-input" placeholder="Login username" />
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Email</label>
+          <input id="reg-email" class="form-input" type="email" placeholder="your@email.com" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Password *</label>
+          <input id="reg-password" class="form-input" type="password" placeholder="Min 6 chars" />
+        </div>
+      </div>
+      <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:4px;" onclick="doRegister()">
+        Create Company →
+      </button>
+      <div style="font-size:11px;color:var(--text3);text-align:center;margin-top:8px;">After creating, sign in with your new credentials</div>
     </div>
-    <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:4px;" onclick="doLogin()">
-      Sign In →
-    </button>
   </div>
 </div>
 
@@ -48,7 +96,7 @@
   <!-- ── SIDEBAR ── -->
   <aside class="sidebar">
     <div class="logo">
-      <div class="logo-name" id="sidebar-logo-name">⬡ Smart Inventory AI</div>
+      <div class="logo-name" id="sidebar-logo-name">⬡ StockSense</div>
       <div class="logo-sub">AI-Powered Retail</div>
     </div>
     <nav class="nav">
@@ -79,6 +127,12 @@
         <span>Reports</span>
       </button>
 
+      <!-- NEW: Sales & Purchase Dashboard -->
+      <button class="nav-item" data-page="sp-dashboard" onclick="navigateTo('sp-dashboard')">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+        <span>S&amp;P Dashboard</span>
+      </button>
+
       <div class="nav-section">Intelligence</div>
 
       <button class="nav-item" data-page="ai" onclick="navigateTo('ai')">
@@ -96,6 +150,12 @@
       <button class="nav-item" data-page="business" onclick="navigateTo('business')" id="nav-business">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
         <span>Business Profile</span>
+      </button>
+
+      <!-- NEW: Email Settings -->
+      <button class="nav-item" data-page="email-settings" onclick="navigateTo('email-settings')" id="nav-email">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,12 2,6"/></svg>
+        <span>Email Settings</span>
       </button>
 
     </nav>
@@ -184,6 +244,97 @@
     </div>
 
     <!-- ════════════════════════════════════════
+         SALES & PURCHASE DASHBOARD (NEW)
+    ════════════════════════════════════════ -->
+    <div id="page-sp-dashboard" class="page">
+      <div class="page-header">
+        <div>
+          <div class="page-title">📊 Sales &amp; Purchase Dashboard</div>
+          <div class="page-sub">Compare revenue vs procurement — live analytics</div>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <select id="sp-period" class="form-input" style="width:130px;" onchange="loadSPDashboard()">
+            <option value="7">Last 7 Days</option>
+            <option value="30" selected>Last 30 Days</option>
+            <option value="90">Last 90 Days</option>
+          </select>
+          <button class="btn btn-ghost" onclick="exportSPDashboard()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+            Export Excel
+          </button>
+        </div>
+      </div>
+
+      <!-- KPI Row -->
+      <div class="stat-grid" style="grid-template-columns:repeat(4,1fr);">
+        <div class="stat-card">
+          <div class="stat-label">Total Sales</div>
+          <div class="stat-value" id="sp-total-sales" style="color:var(--green);">—</div>
+          <div class="stat-change up" id="sp-sales-count">— bills</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Total Purchase</div>
+          <div class="stat-value" id="sp-total-purchase" style="color:var(--amber);">—</div>
+          <div class="stat-change neutral" id="sp-purchase-count">— orders</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Gross Profit</div>
+          <div class="stat-value" id="sp-profit" style="color:var(--accent2);">—</div>
+          <div class="stat-change up" id="sp-margin">—% margin</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Avg. Sale / Day</div>
+          <div class="stat-value" id="sp-avg-day">—</div>
+          <div class="stat-change neutral">Daily average</div>
+        </div>
+      </div>
+
+      <!-- Charts -->
+      <div class="grid2">
+        <div class="card">
+          <div class="section-head">
+            <div class="section-title">📈 Sales vs Purchase Trend</div>
+          </div>
+          <div class="chart-wrap" style="height:220px;"><canvas id="chart-sp-trend"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="section-head">
+            <div class="section-title">🍩 Revenue Split</div>
+          </div>
+          <div class="chart-wrap" style="height:220px;"><canvas id="chart-sp-split"></canvas></div>
+        </div>
+      </div>
+
+      <!-- Tables side by side -->
+      <div class="grid2">
+        <div class="card">
+          <div class="section-head">
+            <div class="section-title">🧾 Recent Sales</div>
+            <button class="btn btn-ghost btn-sm" onclick="exportTableExcel('sp-sales-table','Sales_Data')">⬇ Excel</button>
+          </div>
+          <div class="table-wrap">
+            <table id="sp-sales-table">
+              <thead><tr><th>Date</th><th>Customer</th><th>Voucher</th><th>Amount</th></tr></thead>
+              <tbody id="sp-sales-body"><tr><td colspan="4" class="loading-row">Loading...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="card">
+          <div class="section-head">
+            <div class="section-title">📦 Recent Purchases</div>
+            <button class="btn btn-ghost btn-sm" onclick="exportTableExcel('sp-purchase-table','Purchase_Data')">⬇ Excel</button>
+          </div>
+          <div class="table-wrap">
+            <table id="sp-purchase-table">
+              <thead><tr><th>Date</th><th>Supplier</th><th>Voucher</th><th>Amount</th></tr></thead>
+              <tbody id="sp-purchase-body"><tr><td colspan="4" class="loading-row">Loading...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ════════════════════════════════════════
          SALES PAGE
     ════════════════════════════════════════ -->
     <div id="page-sales" class="page">
@@ -192,19 +343,30 @@
           <div class="page-title">Sales</div>
           <div class="page-sub" id="sales-count">Loading bills...</div>
         </div>
-        <button class="btn btn-primary" onclick="openSaleModal()">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
-          New Sale Bill
-        </button>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-ghost" onclick="exportTableExcel('sales-data-table','Sales')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+            Export Excel
+          </button>
+          <button class="btn btn-primary" onclick="openSaleModal()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+            New Sale Bill
+          </button>
+        </div>
       </div>
       <div class="search-bar">
-        <input class="form-input" id="sales-search" placeholder="Search by customer or voucher..." oninput="filterSales()" />
+        <input id="sales-search" class="form-input" placeholder="Search customer, voucher..." oninput="filterSales()" style="max-width:320px;" />
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input id="sales-date-from" type="date" class="form-input" style="width:140px;" oninput="filterSales()" />
+          <span style="color:var(--text3);font-size:12px;">to</span>
+          <input id="sales-date-to" type="date" class="form-input" style="width:140px;" oninput="filterSales()" />
+        </div>
       </div>
       <div class="card">
         <div class="table-wrap">
-          <table>
-            <thead><tr><th>Customer</th><th>Voucher</th><th>Date</th><th>Items</th><th>Total</th><th>Action</th></tr></thead>
-            <tbody id="sales-table-body"><tr><td colspan="6" class="loading-row">Loading...</td></tr></tbody>
+          <table id="sales-data-table">
+            <thead><tr><th>#</th><th>Date</th><th>Customer</th><th>Voucher</th><th>Items</th><th>Amount</th><th>Action</th></tr></thead>
+            <tbody id="sales-table-body"><tr><td colspan="7" class="loading-row">Loading...</td></tr></tbody>
           </table>
         </div>
       </div>
@@ -219,16 +381,25 @@
           <div class="page-title">Purchase</div>
           <div class="page-sub" id="purchase-count">Loading orders...</div>
         </div>
-        <button class="btn btn-primary" onclick="openPurchaseModal()">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
-          New Purchase
-        </button>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-ghost" onclick="exportTableExcel('purchase-data-table','Purchases')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+            Export Excel
+          </button>
+          <button class="btn btn-primary" onclick="openPurchaseModal()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+            New Purchase
+          </button>
+        </div>
+      </div>
+      <div class="search-bar">
+        <input id="purchase-search" class="form-input" placeholder="Search supplier, voucher..." oninput="filterPurchases()" style="max-width:320px;" />
       </div>
       <div class="card">
         <div class="table-wrap">
-          <table>
-            <thead><tr><th>Supplier</th><th>Voucher</th><th>Date</th><th>Items</th><th>Total</th><th>Action</th></tr></thead>
-            <tbody id="purchase-table-body"><tr><td colspan="6" class="loading-row">Loading...</td></tr></tbody>
+          <table id="purchase-data-table">
+            <thead><tr><th>#</th><th>Date</th><th>Supplier</th><th>Voucher</th><th>Items</th><th>Amount</th><th>Action</th></tr></thead>
+            <tbody id="purchase-table-body"><tr><td colspan="7" class="loading-row">Loading...</td></tr></tbody>
           </table>
         </div>
       </div>
@@ -243,18 +414,27 @@
           <div class="page-title">Stock</div>
           <div class="page-sub" id="stock-count">Loading articles...</div>
         </div>
-        <button class="btn btn-primary" onclick="openAddStockModal()">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
-          Add Article
-        </button>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-ghost" onclick="exportTableExcel('stock-data-table','Stock')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+            Export Excel
+          </button>
+          <button class="btn btn-primary" onclick="openStockModal()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+            Add Article
+          </button>
+        </div>
       </div>
       <div class="search-bar">
-        <input class="form-input" id="stock-search" placeholder="Search articles or category..." oninput="filterStock()" />
+        <input id="stock-search" class="form-input" placeholder="Search article name..." oninput="filterStock()" style="max-width:320px;" />
+        <select id="stock-filter-cat" class="form-input" style="width:160px;" onchange="filterStock()">
+          <option value="">All Categories</option>
+        </select>
       </div>
       <div class="card">
         <div class="table-wrap">
-          <table>
-            <thead><tr><th>Article Name</th><th>Category</th><th>Stock Qty</th><th>Sale Rate</th><th>Purchase Rate</th><th>Margin</th><th>Actions</th></tr></thead>
+          <table id="stock-data-table">
+            <thead><tr><th>Article</th><th>Category</th><th>Qty</th><th>Sale Rate</th><th>Purchase Rate</th><th>Status</th><th>Actions</th></tr></thead>
             <tbody id="stock-table-body"><tr><td colspan="7" class="loading-row">Loading...</td></tr></tbody>
           </table>
         </div>
@@ -270,35 +450,43 @@
           <div class="page-title">Reports</div>
           <div class="page-sub">Business analytics overview</div>
         </div>
-        <button class="btn btn-success" onclick="sendEmail()" id="email-btn">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,12 2,6"/></svg>
-          Send Daily Report Email
-        </button>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-ghost" onclick="exportReportsExcel()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+            Export Excel
+          </button>
+          <button class="btn btn-ghost" id="email-btn" onclick="sendEmail()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,12 2,6"/></svg>
+            Send Daily Report Email
+          </button>
+        </div>
       </div>
       <div class="stat-grid">
-        <div class="stat-card"><div class="stat-label">Total Revenue</div><div class="stat-value" id="rep-revenue">—</div><div class="stat-change neutral">All time</div></div>
-        <div class="stat-card"><div class="stat-label">Total Purchases</div><div class="stat-value" id="rep-purchase">—</div><div class="stat-change neutral">All time</div></div>
-        <div class="stat-card"><div class="stat-label">Est. Gross Profit</div><div class="stat-value" id="rep-profit">—</div><div class="stat-change up">~38% margin</div></div>
-        <div class="stat-card"><div class="stat-label">Total Bills</div><div class="stat-value" id="rep-bills">—</div><div class="stat-change neutral">Sales orders</div></div>
+        <div class="stat-card"><div class="stat-label">Total Revenue</div><div class="stat-value" id="rep-revenue">—</div></div>
+        <div class="stat-card"><div class="stat-label">Total Purchase</div><div class="stat-value" id="rep-purchase">—</div></div>
+        <div class="stat-card"><div class="stat-label">Gross Profit (38%)</div><div class="stat-value" id="rep-profit">—</div></div>
+        <div class="stat-card"><div class="stat-label">Total Bills</div><div class="stat-value" id="rep-bills">—</div></div>
       </div>
       <div class="grid2">
         <div class="card">
-          <div class="section-head"><div class="section-title">Sales by Category</div></div>
+          <div class="section-head"><div class="section-title">Category Revenue</div></div>
           <div class="chart-wrap"><canvas id="chart-category"></canvas></div>
         </div>
         <div class="card">
-          <div class="section-head"><div class="section-title">Best Selling Articles</div></div>
+          <div class="section-head">
+            <div class="section-title">🏆 Best Selling Articles</div>
+          </div>
           <div class="table-wrap">
             <table>
-              <thead><tr><th>#</th><th>Article</th><th>Qty Sold</th></tr></thead>
+              <thead><tr><th>#</th><th>Article</th><th>Sold</th></tr></thead>
               <tbody id="rep-best-selling"></tbody>
             </table>
           </div>
         </div>
       </div>
       <div class="card">
-        <div class="section-head"><div class="section-title">Monthly Performance</div></div>
-        <div id="rep-monthly-grid" style="display:grid;grid-template-columns:repeat(6,1fr);gap:8px;"></div>
+        <div class="section-head"><div class="section-title">📅 Monthly Performance (This Year)</div></div>
+        <div id="rep-monthly-grid" style="display:grid;grid-template-columns:repeat(6,1fr);gap:10px;"></div>
       </div>
     </div>
 
@@ -309,12 +497,11 @@
       <div class="page-header">
         <div>
           <div class="page-title">AI Insights</div>
-          <div class="page-sub">Powered by OpenRouter AI · Google Trend Signals</div>
+          <div class="page-sub">Powered by OpenRouter AI · Market Trend Signals</div>
         </div>
-        <div style="display:flex;gap:10px;">
+        <div style="display:flex;gap:8px;">
           <button class="btn btn-ghost" onclick="loadAITrends(true)" id="ai-refresh-btn">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-            Refresh Trends
+            🔄 Refresh Trends
           </button>
           <button class="btn btn-primary" onclick="getAIPrediction()" id="ai-btn">
             🤖 Get AI Prediction
@@ -322,51 +509,52 @@
         </div>
       </div>
 
-      <!-- Google Trends Section -->
-      <div class="card" style="margin-bottom:16px;border-color:var(--accent-dim);">
+      <!-- Top Searches from AI -->
+      <div class="card" style="margin-bottom:16px;">
         <div class="section-head">
           <div>
-            <div class="section-title">📈 Top Google Searches — Your Business Category</div>
-            <div style="font-size:12px;color:var(--text3);margin-top:3px;" id="ai-trends-meta">Based on your business profile category</div>
+            <div class="section-title">📊 Top Google Searches — Your Business Category</div>
+            <div style="font-size:11px;color:var(--text3);margin-top:3px;" id="ai-trends-meta">Based on your business profile category</div>
           </div>
-          <span class="badge badge-purple" id="ai-trends-cache-badge"></span>
+          <span id="ai-trends-cache-badge" class="badge badge-gray">—</span>
         </div>
         <div id="ai-trends-container">
-          <div class="loading-row">Click "Refresh Trends" to load AI-powered Google trend data for your category...</div>
+          <div class="loading-row">Click "Refresh Trends" to load AI-powered market trend data for your category...</div>
         </div>
       </div>
 
       <!-- Rising Fast -->
       <div class="card" style="margin-bottom:16px;">
         <div class="section-head"><div class="section-title">🚀 Rising Fast Right Now</div></div>
-        <div id="ai-rising-fast" style="display:flex;flex-wrap:wrap;gap:8px;min-height:32px;">
-          <span style="color:var(--text3);font-size:13px;">Load trends to see rising search terms</span>
+        <div id="ai-rising-fast" style="display:flex;flex-wrap:wrap;gap:8px;min-height:30px;">
+          <span style="color:var(--text3);font-size:13px;">Load trends to see rising items</span>
         </div>
       </div>
 
       <!-- AI Prediction Panel -->
-      <div class="ai-card">
-        <div class="ai-header">
-          <div class="ai-pulse"></div>
-          <div class="ai-title">Sales Prediction Engine — OpenRouter AI</div>
+      <div class="card" style="background:linear-gradient(135deg,#0f0f20,var(--bg2));border-color:var(--accent);">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+          <div style="width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent);"></div>
+          <div class="ai-title">Sales Prediction Engine — Claude AI</div>
         </div>
         <div class="ai-content" id="ai-content">Click "Get AI Prediction" to analyse your store data and receive upcoming sales forecasts, restock recommendations, and festival demand tips...</div>
       </div>
 
-      <div class="grid2">
+      <!-- Seasonal Forecast -->
+      <div class="card" style="margin-top:16px;">
+        <div class="section-head"><div class="section-title">📆 Seasonal Forecast</div></div>
+        <div id="ai-forecast" class="grid3"></div>
+      </div>
+
+      <div class="grid2" style="margin-top:16px;">
         <div class="card">
           <div class="section-head"><div class="section-title">🔥 Fast Selling (Last 30 Days)</div></div>
-          <div id="ai-fast-selling"><div class="loading-row">Load dashboard first</div></div>
+          <div id="ai-fast-selling"><div class="loading-row">Loading...</div></div>
         </div>
         <div class="card">
           <div class="section-head"><div class="section-title">⚠️ Low Stock Alert</div></div>
-          <div id="ai-low-stock"><div class="loading-row">Load dashboard first</div></div>
+          <div id="ai-low-stock"><div class="loading-row">Loading...</div></div>
         </div>
-      </div>
-
-      <div class="card">
-        <div class="section-head"><div class="section-title">🗓️ Season &amp; Festival Demand Forecast</div></div>
-        <div id="ai-forecast" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;"></div>
       </div>
     </div>
 
@@ -379,44 +567,16 @@
           <div class="page-title">Users &amp; Staff</div>
           <div class="page-sub" id="users-count">Loading...</div>
         </div>
-        <div style="display:flex;gap:10px;">
-          <button class="btn btn-ghost" onclick="openAddUserModal('staff')">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
-            Add Staff
-          </button>
-          <button class="btn btn-primary" onclick="openAddUserModal('admin')">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
-            Add Admin
-          </button>
-        </div>
+        <button class="btn btn-primary" onclick="openUserModal()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+          Add Staff
+        </button>
       </div>
-
-      <!-- Role summary cards -->
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px;">
-        <div class="stat-card">
-          <div class="stat-label">Total Users</div>
-          <div class="stat-value" id="users-total-count">—</div>
-          <div class="stat-change neutral">All accounts</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">Admins</div>
-          <div class="stat-value" id="users-admin-count">—</div>
-          <div class="stat-change up">Full access</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">Staff Members</div>
-          <div class="stat-value" id="users-staff-count">—</div>
-          <div class="stat-change neutral">Limited access</div>
-        </div>
-      </div>
-
       <div class="card">
         <div class="table-wrap">
           <table>
             <thead>
-              <tr>
-                <th>User</th><th>Role</th><th>Email</th><th>Phone</th><th>Joined</th><th>Status</th><th>Actions</th>
-              </tr>
+              <tr><th>Name</th><th>Username</th><th>Role</th><th>Email</th><th>Phone</th><th>Status</th><th>Actions</th></tr>
             </thead>
             <tbody id="users-table-body"><tr><td colspan="7" class="loading-row">Loading...</td></tr></tbody>
           </table>
@@ -439,7 +599,6 @@
         </button>
       </div>
 
-      <!-- Hero card -->
       <div class="card" style="margin-bottom:16px;background:linear-gradient(135deg,#1a1730,var(--bg3));">
         <div style="display:flex;align-items:center;gap:20px;">
           <div id="biz-avatar" style="width:64px;height:64px;border-radius:16px;background:var(--accent-dim);display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:700;color:var(--accent2);font-family:'Space Mono',monospace;flex-shrink:0;">SC</div>
@@ -454,7 +613,6 @@
       </div>
 
       <div class="grid2">
-        <!-- Business Info -->
         <div class="card">
           <div class="section-head"><div class="section-title">🏢 Business Information</div></div>
           <table class="data-table" style="font-size:13px;">
@@ -467,8 +625,6 @@
             </tbody>
           </table>
         </div>
-
-        <!-- Contact Info -->
         <div class="card">
           <div class="section-head"><div class="section-title">📞 Contact &amp; Location</div></div>
           <table class="data-table" style="font-size:13px;">
@@ -480,8 +636,6 @@
             </tbody>
           </table>
         </div>
-
-        <!-- Tax Info -->
         <div class="card">
           <div class="section-head"><div class="section-title">🧾 Tax &amp; Compliance</div></div>
           <table class="data-table" style="font-size:13px;">
@@ -493,12 +647,134 @@
             </tbody>
           </table>
         </div>
-
-        <!-- Selling Items -->
         <div class="card">
           <div class="section-head"><div class="section-title">🛍️ What You Sell</div></div>
           <div id="biz-display-items-wrap" style="display:flex;flex-wrap:wrap;gap:8px;min-height:40px;">
-            <span style="color:var(--text3);font-size:13px);">—</span>
+            <span style="color:var(--text3);font-size:13px;">—</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ════════════════════════════════════════
+         EMAIL SETTINGS PAGE (NEW)
+    ════════════════════════════════════════ -->
+    <div id="page-email-settings" class="page">
+      <div class="page-header">
+        <div>
+          <div class="page-title">📧 Email Settings</div>
+          <div class="page-sub">Configure your email and daily report preferences</div>
+        </div>
+      </div>
+
+      <!-- Current Config Status -->
+      <div class="card" style="margin-bottom:16px;background:linear-gradient(135deg,#0f1f10,var(--bg2));">
+        <div class="section-head">
+          <div class="section-title">✅ Email Configuration Status</div>
+          <span id="email-status-badge" class="badge badge-gray">Checking...</span>
+        </div>
+        <div id="email-status-detail" style="font-size:13px;color:var(--text2);">Loading email configuration status...</div>
+      </div>
+
+      <div class="grid2">
+        <!-- SMTP Settings -->
+        <div class="card">
+          <div class="section-head"><div class="section-title">⚙️ SMTP Configuration</div></div>
+          <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:14px;font-size:12px;color:var(--text3);">
+            📌 These settings are saved in your <strong style="color:var(--text2);">.env</strong> file. Restart server after saving.
+          </div>
+          <div class="form-group">
+            <label class="form-label">SMTP Host</label>
+            <input id="em-host" class="form-input" placeholder="smtp.gmail.com" />
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">SMTP Port</label>
+              <input id="em-port" class="form-input" type="number" placeholder="587" value="587" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Security</label>
+              <select id="em-secure" class="form-input">
+                <option value="false">STARTTLS (587)</option>
+                <option value="true">SSL/TLS (465)</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Email Address (Sender)</label>
+            <input id="em-user" class="form-input" type="email" placeholder="yourstore@gmail.com" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">App Password</label>
+            <input id="em-pass" class="form-input" type="password" placeholder="Gmail App Password (16 chars)" />
+            <div style="font-size:11px;color:var(--text3);margin-top:4px;">
+              For Gmail: Enable 2FA → Google Account → Security → App Passwords
+            </div>
+          </div>
+        </div>
+
+        <!-- Report Settings -->
+        <div class="card">
+          <div class="section-head"><div class="section-title">📬 Daily Report Settings</div></div>
+
+          <div class="form-group">
+            <label class="form-label">Report Recipient Email</label>
+            <input id="em-recipient" class="form-input" type="email" placeholder="owner@yourstore.com" />
+            <div style="font-size:11px;color:var(--text3);margin-top:4px;">Daily sales summary will be sent here</div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Report Time (IST)</label>
+            <select id="em-time" class="form-input">
+              <option value="0 8 * * *">8:00 AM</option>
+              <option value="0 12 * * *">12:00 PM</option>
+              <option value="0 18 * * *">6:00 PM</option>
+              <option value="0 20 * * *" selected>8:00 PM (default)</option>
+              <option value="0 22 * * *">10:00 PM</option>
+            </select>
+          </div>
+
+          <!-- What's included -->
+          <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:14px;margin-top:4px;">
+            <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:8px;">📋 Daily Report Includes:</div>
+            <div style="font-size:12px;color:var(--text2);line-height:1.8;">
+              ✅ Today's total revenue &amp; bills<br>
+              ✅ Top 5 best-selling items<br>
+              ✅ Low stock alerts<br>
+              ✅ Today's purchases total<br>
+              ✅ Gross profit estimate
+            </div>
+          </div>
+
+          <div style="margin-top:14px;display:flex;gap:8px;">
+            <button class="btn btn-ghost" style="flex:1;justify-content:center;" onclick="testEmail()">
+              📤 Send Test Email
+            </button>
+            <button class="btn btn-primary" style="flex:1;justify-content:center;" onclick="saveEmailSettings()">
+              💾 Save Settings
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Gmail Quick Guide -->
+      <div class="card" style="background:var(--bg3);">
+        <div class="section-head"><div class="section-title">📖 Gmail Setup Guide (Quick)</div></div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;">
+          <div style="text-align:center;padding:12px;background:var(--bg2);border-radius:8px;border:1px solid var(--border);">
+            <div style="font-size:24px;margin-bottom:6px;">1️⃣</div>
+            <div style="font-size:12px;color:var(--text2);">Go to Google Account → Security</div>
+          </div>
+          <div style="text-align:center;padding:12px;background:var(--bg2);border-radius:8px;border:1px solid var(--border);">
+            <div style="font-size:24px;margin-bottom:6px;">2️⃣</div>
+            <div style="font-size:12px;color:var(--text2);">Enable 2-Step Verification</div>
+          </div>
+          <div style="text-align:center;padding:12px;background:var(--bg2);border-radius:8px;border:1px solid var(--border);">
+            <div style="font-size:24px;margin-bottom:6px;">3️⃣</div>
+            <div style="font-size:12px;color:var(--text2);">Search "App Passwords" → Create one</div>
+          </div>
+          <div style="text-align:center;padding:12px;background:var(--bg2);border-radius:8px;border:1px solid var(--border);">
+            <div style="font-size:24px;margin-bottom:6px;">4️⃣</div>
+            <div style="font-size:12px;color:var(--text2);">Paste 16-char password above</div>
           </div>
         </div>
       </div>
@@ -511,74 +787,145 @@
      MODALS
 ═══════════════════════════════════════════ -->
 
-<!-- New Sale Modal -->
-<div id="modal-sale" class="modal-overlay hidden">
-  <div class="modal">
-    <div class="modal-title">🧾 New Sale Bill</div>
-    <div class="form-row">
-      <div class="form-group">
-        <label class="form-label">Customer Name *</label>
-        <input id="sale-customer" class="form-input" placeholder="Customer name" />
-      </div>
-      <div class="form-group">
-        <label class="form-label">Voucher No.</label>
-        <input id="sale-voucher" class="form-input" placeholder="Auto-generated" />
+<!-- New Sale Modal — Tally-style fullscreen billing -->
+<div id="modal-sale" class="modal-overlay hidden bill-modal-overlay">
+  <div class="modal bill-modal">
+    <!-- Header bar -->
+    <div class="bill-modal-header">
+      <div class="bill-header-title">Sales – Add Bill</div>
+      <div class="bill-header-fields">
+        <div class="bill-hf-group">
+          <span class="bill-hf-label">Date</span>
+          <input id="sale-date" class="bill-hf-input" type="date" />
+        </div>
+        <div class="bill-hf-group">
+          <span class="bill-hf-label">Vch. No.</span>
+          <input id="sale-voucher" class="bill-hf-input" placeholder="Auto" style="width:80px;" />
+        </div>
+        <div class="bill-hf-group">
+          <span class="bill-hf-label">Sale Type</span>
+          <select id="sale-type" class="bill-hf-input">
+            <option>L/GST-No Tax</option>
+            <option>GST-Inclusive</option>
+            <option>GST-Exclusive</option>
+            <option>Cash Sale</option>
+          </select>
+        </div>
+        <div class="bill-hf-group">
+          <span class="bill-hf-label">Party *</span>
+          <input id="sale-customer" class="bill-hf-input party-input" placeholder="Customer / Cash" />
+        </div>
+        <div class="bill-hf-group">
+          <span class="bill-hf-label">Narration</span>
+          <input id="sale-narration" class="bill-hf-input" placeholder="Optional note" style="width:200px;" />
+        </div>
       </div>
     </div>
-    <div class="form-row">
-      <div class="form-group">
-        <label class="form-label">Date</label>
-        <input id="sale-date" class="form-input" type="date" />
+
+    <!-- Items Grid -->
+    <div class="bill-table-wrap">
+      <table class="bill-table">
+        <thead>
+          <tr>
+            <th class="bill-sn-th">S.N.</th>
+            <th class="bill-item-th">Item</th>
+            <th class="bill-num-th">Qty</th>
+            <th class="bill-num-th">Unit</th>
+            <th class="bill-num-th">List Price</th>
+            <th class="bill-num-th">Disc.%</th>
+            <th class="bill-num-th">Price</th>
+            <th class="bill-num-th">Amount</th>
+          </tr>
+        </thead>
+        <tbody id="sale-bill-tbody"></tbody>
+        <tfoot>
+          <tr>
+            <td colspan="6" class="bill-foot-label"></td>
+            <td class="bill-foot-label" style="text-align:right;">Subtotal</td>
+            <td class="bill-foot-amount" id="sale-subtotal-display">₹0.00</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+
+    <!-- Footer — Bill Sundry / Discount + Total -->
+    <div class="bill-footer">
+      <div class="bill-sundry">
+        <div class="bill-sundry-title">Bill Sundry Details</div>
+        <div class="bill-sundry-row">
+          <span>1. (-) DISCOUNT</span>
+          <input class="bill-num-input bill-discount-input" type="number" id="sale-discount" value="0" min="0" step="0.01" oninput="recalcSaleBill()" />
+        </div>
       </div>
-      <div class="form-group">
-        <label class="form-label">Narration</label>
-        <input id="sale-narration" class="form-input" placeholder="Optional note" />
+      <div class="bill-total-box">
+        <div class="bill-total-label">Total Amount –</div>
+        <div class="bill-total-value" id="sale-total-display">₹0.00</div>
       </div>
     </div>
-    <div class="section-title" style="margin-bottom:10px;">Items</div>
-    <div id="sale-items-wrap" class="bill-items-wrap"></div>
-    <button class="btn btn-ghost btn-sm" onclick="addSaleItem()" style="margin-top:6px;">+ Add Item</button>
-    <div class="bill-total" id="sale-total-display" style="color:var(--green);">Total: ₹0.00</div>
-    <div id="sale-error" class="form-error" style="margin-top:8px;font-size:13px;color:var(--red);"></div>
-    <div class="modal-actions">
-      <button class="btn btn-ghost" onclick="closeModal('modal-sale')">Cancel</button>
-      <button class="btn btn-primary" onclick="submitSale()">Save Bill ✓</button>
+
+    <div id="sale-error" style="color:var(--red);font-size:13px;padding:4px 16px;min-height:20px;"></div>
+
+    <!-- Action Buttons -->
+    <div class="bill-actions">
+      <button class="bill-action-btn" onclick="closeModal('modal-sale')">Quit</button>
+      <button class="bill-action-btn btn-primary" onclick="submitSale()">Save Bill</button>
     </div>
   </div>
 </div>
 
-<!-- New Purchase Modal -->
-<div id="modal-purchase" class="modal-overlay hidden">
-  <div class="modal">
-    <div class="modal-title">📦 New Purchase Order</div>
-    <div class="form-row">
-      <div class="form-group">
-        <label class="form-label">Supplier Name *</label>
-        <input id="pur-supplier" class="form-input" placeholder="Supplier name" />
-      </div>
-      <div class="form-group">
-        <label class="form-label">Voucher No.</label>
-        <input id="pur-voucher" class="form-input" placeholder="Auto-generated" />
+<!-- New Purchase Modal — Tally-style fullscreen billing -->
+<div id="modal-purchase" class="modal-overlay hidden bill-modal-overlay">
+  <div class="modal bill-modal">
+    <div class="bill-modal-header">
+      <div class="bill-header-title">Purchase – Add Bill</div>
+      <div class="bill-header-fields">
+        <div class="bill-hf-group">
+          <span class="bill-hf-label">Date</span>
+          <input id="pur-date" class="bill-hf-input" type="date" />
+        </div>
+        <div class="bill-hf-group">
+          <span class="bill-hf-label">Vch. No.</span>
+          <input id="pur-voucher" class="bill-hf-input" placeholder="Auto" style="width:80px;" />
+        </div>
+        <div class="bill-hf-group">
+          <span class="bill-hf-label">Supplier *</span>
+          <input id="pur-supplier" class="bill-hf-input party-input" placeholder="Supplier name" />
+        </div>
+        <div class="bill-hf-group">
+          <span class="bill-hf-label">Narration</span>
+          <input id="pur-narration" class="bill-hf-input" placeholder="Optional note" style="width:200px;" />
+        </div>
       </div>
     </div>
-    <div class="form-row">
-      <div class="form-group">
-        <label class="form-label">Date</label>
-        <input id="pur-date" class="form-input" type="date" />
-      </div>
-      <div class="form-group">
-        <label class="form-label">Narration</label>
-        <input id="pur-narration" class="form-input" placeholder="Optional note" />
-      </div>
+
+    <div class="bill-table-wrap">
+      <table class="bill-table">
+        <thead>
+          <tr>
+            <th class="bill-sn-th">S.N.</th>
+            <th class="bill-item-th">Item</th>
+            <th class="bill-num-th">Qty</th>
+            <th class="bill-num-th">Unit</th>
+            <th class="bill-num-th">Rate ₹</th>
+            <th class="bill-num-th">Amount</th>
+          </tr>
+        </thead>
+        <tbody id="pur-bill-tbody"></tbody>
+        <tfoot>
+          <tr>
+            <td colspan="4" class="bill-foot-label"></td>
+            <td class="bill-foot-label" style="text-align:right;">Total</td>
+            <td class="bill-foot-amount" id="pur-total-display">₹0.00</td>
+          </tr>
+        </tfoot>
+      </table>
     </div>
-    <div class="section-title" style="margin-bottom:10px;">Items</div>
-    <div id="pur-items-wrap" class="bill-items-wrap"></div>
-    <button class="btn btn-ghost btn-sm" onclick="addPurchaseItem()" style="margin-top:6px;">+ Add Item</button>
-    <div class="bill-total" id="pur-total-display" style="color:var(--amber);">Total: ₹0.00</div>
-    <div id="pur-error" class="form-error" style="margin-top:8px;font-size:13px;color:var(--red);"></div>
-    <div class="modal-actions">
-      <button class="btn btn-ghost" onclick="closeModal('modal-purchase')">Cancel</button>
-      <button class="btn btn-primary" onclick="submitPurchase()">Save Purchase ✓</button>
+
+    <div id="pur-error" style="color:var(--red);font-size:13px;padding:4px 16px;min-height:20px;"></div>
+
+    <div class="bill-actions">
+      <button class="bill-action-btn" onclick="closeModal('modal-purchase')">Quit</button>
+      <button class="bill-action-btn btn-primary" onclick="submitPurchase()">Save Bill</button>
     </div>
   </div>
 </div>
@@ -664,14 +1011,11 @@
         </select>
       </div>
     </div>
-
-    <!-- Role description -->
     <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:12px;font-size:12px;color:var(--text2);">
       <strong style="color:var(--text);">Role permissions:</strong><br>
       <span style="color:var(--accent2);">Admin</span> — Full access: manage users, edit business profile, view all reports, send emails<br>
       <span style="color:var(--green);">Staff</span> — Can create sales, purchases, and manage stock. Cannot manage users or business settings.
     </div>
-
     <div id="user-error" class="form-error" style="color:var(--red);"></div>
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeModal('modal-user')">Cancel</button>
@@ -815,5 +1159,8 @@
 <script src="/js/ai.js"></script>
 <script src="/js/users.js"></script>
 <script src="/js/business.js"></script>
+<script src="/js/sp-dashboard.js"></script>
+<script src="/js/export.js"></script>
+<script src="/js/email-settings.js"></script>
 </body>
 </html>
