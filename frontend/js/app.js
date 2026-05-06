@@ -197,3 +197,27 @@ window.addEventListener('DOMContentLoaded', () => {
         bootApp(user);
     }
 });
+
+// ── Mobile Sidebar Toggle ──────────────────────────────────────────────
+function toggleMobileMenu() {
+    const sidebar  = document.querySelector('.sidebar');
+    const overlay  = document.getElementById('mob-overlay');
+    const isOpen   = sidebar.classList.contains('mob-open');
+    if (isOpen) {
+        sidebar.classList.remove('mob-open');
+        overlay.classList.remove('mob-show');
+    } else {
+        sidebar.classList.add('mob-open');
+        overlay.classList.add('mob-show');
+    }
+}
+
+function closeMobileMenu() {
+    document.querySelector('.sidebar')?.classList.remove('mob-open');
+    document.getElementById('mob-overlay')?.classList.remove('mob-show');
+}
+
+// Close sidebar on resize to desktop
+window.addEventListener('resize', () => {
+    if (window.innerWidth > 900) closeMobileMenu();
+});
